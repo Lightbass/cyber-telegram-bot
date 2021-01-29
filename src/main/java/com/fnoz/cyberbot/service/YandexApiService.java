@@ -19,6 +19,8 @@ import java.util.Map;
 
 public class YandexApiService {
 
+    private final String diskFolderPath = "disk:/User memes archive/";
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final CloseableHttpClient httpClient = HttpClients.createDefault();
     private final String token;
@@ -29,7 +31,7 @@ public class YandexApiService {
 
     public void uploadFile(String localFilePath, String cloudFileName) throws Exception {
         Map<String, String> queryParams = new HashMap<String, String>() {{
-            put("path", "disk:/User memes archive/" + cloudFileName);
+            put("path", diskFolderPath + cloudFileName);
         }};
         String json = sendGet("https://cloud-api.yandex.net/v1/disk/resources/upload", queryParams);
 
