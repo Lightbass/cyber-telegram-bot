@@ -45,6 +45,7 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage()) {
+            System.out.println(update.getMessage());
             checkDuplicateMessage(update.getMessage());
             processMemeMessage(update.getMessage());
         }
@@ -63,7 +64,12 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
     private void checkDuplicateMessage(Message message) {
         String parentId = null;
         if (message.getForwardFrom() != null) {
-            parentId = "u" + message.getForwardFrom().getId() + "m" + message.getForwardDate();
+            int textHash = message.hasText() ? message.getText().hashCode() : 0;
+            int photoHash = message.hasPhoto() ?
+                    message.getPhoto().stream().mapToInt(a -> a.getFileUniqueId().hashCode()).reduce(0, (a, b) -> a ^ b) : 0;
+            int sum = textHash ^ photoHash ^ message.getForwardDate();
+            parentId = "u" + message.getForwardFrom().getId() + "m" + sum;
+            System.out.println("HASH = " + parentId);
         } else if (message.getForwardFromChat() != null) {
             parentId = "c" + message.getForwardFromChat().getId() + "m" + message.getForwardFromMessageId();
         }
