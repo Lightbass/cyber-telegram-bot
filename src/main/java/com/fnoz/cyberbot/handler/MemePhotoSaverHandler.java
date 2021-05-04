@@ -45,7 +45,6 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage()) {
-            System.out.println(update.getMessage());
             checkDuplicateMessage(update.getMessage());
             processMemeMessage(update.getMessage());
         }
@@ -69,7 +68,6 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
                     message.getPhoto().stream().mapToInt(a -> a.getFileUniqueId().hashCode()).reduce(0, (a, b) -> a ^ b) : 0;
             int sum = textHash ^ photoHash ^ message.getForwardDate();
             parentId = "u" + message.getForwardFrom().getId() + "m" + sum;
-            System.out.println("HASH = " + parentId);
         } else if (message.getForwardFromChat() != null) {
             parentId = "c" + message.getForwardFromChat().getId() + "m" + message.getForwardFromMessageId();
         }
@@ -109,7 +107,6 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
                     GetFile getFile = new GetFile(pz.getFileId());
                     try {
                         File file = execute(getFile);
-                        System.out.println(file.getFilePath());
                         java.io.File localFile = downloadPhotoByFilePath(file.getFilePath());
                         String cloudFileName = LocalDate.now().toString() + "_" + file.getFileUniqueId() + ".jpg";
                         yandexApi.uploadFile(localFile.getAbsolutePath(), cloudFileName);
