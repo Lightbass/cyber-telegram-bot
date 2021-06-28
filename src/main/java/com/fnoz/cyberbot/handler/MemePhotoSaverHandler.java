@@ -138,6 +138,15 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
         if (message.hasText() && message.getText().contains("/mine")) {
             String playerList =
                     Arrays.stream(minecraftService.getOnlineUsernames()).reduce("", (a, b) -> a + "\n" + b);
+            DeleteMessage deleteMessage = DeleteMessage.builder()
+                    .chatId(message.getChatId().toString())
+                    .messageId(message.getMessageId())
+                    .build();
+            try {
+                execute(deleteMessage);
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
             sendMessage(message.getChatId().toString(), playerList);
         }
     }
