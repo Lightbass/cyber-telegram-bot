@@ -1,5 +1,6 @@
 package com.fnoz.cyberbot.handler;
 
+import com.fnoz.cyberbot.service.MinecraftService;
 import com.fnoz.cyberbot.service.YandexApiService;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
@@ -12,6 +13,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -30,6 +32,7 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
     private final int FORWARDED_MESSAGES_CACHE;
 
     private final YandexApiService yandexApi;
+    private final MinecraftService minecraftService;
     private final LinkedHashSet<String> chatMessagesIds;
 
     public MemePhotoSaverHandler(Properties properties) {
@@ -40,6 +43,7 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
 
         chatMessagesIds = new LinkedHashSet<>(FORWARDED_MESSAGES_CACHE);
         yandexApi = new YandexApiService(properties.getProperty("fnoz.yandex.token"));
+        minecraftService = new MinecraftService(properties.getProperty("fnoz.minecraft.server.ip"));
     }
 
     @Override
@@ -47,6 +51,7 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
         if (update.hasMessage()) {
             checkDuplicateMessage(update.getMessage());
             processMemeMessage(update.getMessage());
+            checkMinecraftPlayers(update.getMessage());
         }
     }
 
@@ -126,6 +131,14 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
                 e.printStackTrace();
             }
             sendMessage(message.getChatId().toString(), "@" + message.getFrom().getUserName() + NO_IMAGE);
+        }
+    }
+
+    private void checkMinecraftPlayers(Message message) {
+        if (message.hasText() && message.getText().contains("/mine")) {
+            String playerList =
+                    Arrays.stream(minecraftService.getOnlineUsernames()).reduce("", (a, b) -> a + "\n" + b);
+            sendMessage(message.getChatId().toString(), playerList);
         }
     }
 
