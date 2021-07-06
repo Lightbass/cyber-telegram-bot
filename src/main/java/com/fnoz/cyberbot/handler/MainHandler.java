@@ -4,7 +4,6 @@ import com.fnoz.cyberbot.service.MinecraftService;
 import com.fnoz.cyberbot.service.YandexApiService;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.File;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -13,14 +12,14 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
-public class MemePhotoSaverHandler extends TelegramLongPollingBot {
+import static com.fnoz.cyberbot.tools.TelegramUtils.*;
+
+public class MainHandler extends TelegramLongPollingBot {
 
     private final String BOT_USERNAME;
     private final String BOT_TOKEN;
@@ -35,7 +34,10 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
     private final MinecraftService minecraftService;
     private final LinkedHashSet<String> chatMessagesIds;
 
-    public MemePhotoSaverHandler(Properties properties) {
+    private volatile Message playerListMessage;
+    private volatile Thread playerListThread;
+
+    public MainHandler(Properties properties) {
         this.BOT_USERNAME = properties.getProperty("fnoz.bot.username");
         this.BOT_TOKEN = properties.getProperty("fnoz.bot.token");
         this.DELETE_MESSAGE_DELAY_SEC = Integer.parseInt(properties.getProperty("fnoz.message-delay-sec"));
@@ -91,7 +93,7 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
                 } catch (TelegramApiException e) {
                     e.printStackTrace();
                 }
-                sendMessage(message.getChatId().toString(), "@" + message.getFrom().getUserName() + DUPLICATE_ANSWER);
+                sendTempMessage(message.getChatId().toString(), "@" + message.getFrom().getUserName() + DUPLICATE_ANSWER, DELETE_MESSAGE_DELAY_SEC, this);
             } else {
                 chatMessagesIds.add(parentId);
             }
@@ -112,10 +114,10 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
                     GetFile getFile = new GetFile(pz.getFileId());
                     try {
                         File file = execute(getFile);
-                        java.io.File localFile = downloadPhotoByFilePath(file.getFilePath());
+                        java.io.File localFile = downloadPhotoByFilePath(file.getFilePath(), this);
                         String cloudFileName = LocalDate.now().toString() + "_" + file.getFileUniqueId() + ".jpg";
                         yandexApi.uploadFile(localFile.getAbsolutePath(), cloudFileName);
-                        sendMessage(message.getChatId().toString(), IMAGE_SAVED);
+                        sendTempMessage(message.getChatId().toString(), IMAGE_SAVED, DELETE_MESSAGE_DELAY_SEC, this);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -130,52 +132,42 @@ public class MemePhotoSaverHandler extends TelegramLongPollingBot {
             } catch (TelegramApiException e) {
                 e.printStackTrace();
             }
-            sendMessage(message.getChatId().toString(), "@" + message.getFrom().getUserName() + NO_IMAGE);
+            sendTempMessage(message.getChatId().toString(), "@" + message.getFrom().getUserName() + NO_IMAGE, DELETE_MESSAGE_DELAY_SEC, this);
         }
     }
 
     private void checkMinecraftPlayers(Message message) {
-        if (message.hasText() && message.getText().contains("/mine")) {
-            String playerList = Arrays.stream(minecraftService.getOnlineUsernames())
-                    .reduce("", (a, b) -> a + "\n" + b);
-            DeleteMessage deleteMessage = DeleteMessage.builder()
-                    .chatId(message.getChatId().toString())
-                    .messageId(message.getMessageId())
-                    .build();
+        if (message.hasText() && message.getText().matches("^/mine(@.+)?$")) {
+            deleteMessage(message, this);
+            restartMinecraftPlayersThread(message.getChatId());
+        }
+    }
+
+    private void restartMinecraftPlayersThread(Long chatId) {
+        if (this.playerListThread != null && this.playerListThread.getState() != Thread.State.TERMINATED) {
+            this.playerListThread.interrupt();
             try {
-                execute(deleteMessage);
-            } catch (TelegramApiException e) {
+                this.playerListThread.join();
+            } catch (InterruptedException e) {
+                deleteMessage(this.playerListMessage, this);
+            }
+        }
+        this.playerListMessage = sendMessage(chatId.toString(), minecraftService.getOnlineUsernames(), this);
+        this.playerListThread = new Thread(() -> {
+            try {
+                while (true) {
+                    Thread.sleep(10000);
+                    if (playerListMessage != null) {
+                        String listPlayers = minecraftService.getOnlineUsernames();
+                        editMessage(playerListMessage, listPlayers, this);
+                        playerListMessage.setText(listPlayers);
+                    }
+                }
+            } catch (InterruptedException e) {
+                deleteMessage(this.playerListMessage, this);
                 e.printStackTrace();
             }
-            sendMessage(message.getChatId().toString(), playerList.isEmpty() ? "Никого" : playerList);
-        }
-    }
-
-    private void sendMessage(String chatId, String text) {
-        SendMessage sendMessage = SendMessage.builder()
-                .chatId(chatId)
-                .text(text)
-                .build();
-
-        try {
-            Message message = execute(sendMessage);
-            DeleteMessage deleteMessage = DeleteMessage.builder()
-                    .chatId(chatId)
-                    .messageId(message.getMessageId())
-                    .build();
-            TimeUnit.SECONDS.sleep(DELETE_MESSAGE_DELAY_SEC);
-            execute(deleteMessage);
-        } catch (TelegramApiException | InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private java.io.File downloadPhotoByFilePath(String filePath) {
-        try {
-            return downloadFile(filePath);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
-        return null;
+        });
+        this.playerListThread.start();
     }
 }

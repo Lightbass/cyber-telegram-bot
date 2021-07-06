@@ -25,7 +25,7 @@ import org.xbill.DNS.Type;
  *
  * @author Ryan Shaw, Jonas Konrad
  */
-public class Query implements Closeable {
+public class MinecraftQuery implements Closeable {
     /**
      * The target address and port
      */
@@ -45,13 +45,13 @@ public class Query implements Closeable {
     /**
      * Convenience constructor
      *
-     * @see Query#Query(InetSocketAddress)
+     * @see MinecraftQuery#Query(InetSocketAddress)
      * @param host
      *            The target host
      * @param port
      *            The target port
      */
-    public Query(String host, int port, int queryport) {
+    public MinecraftQuery(String host, int port, int queryport) {
         this(new InetSocketAddress(host, queryport), new InetSocketAddress(host, port));
     }
 
@@ -61,7 +61,7 @@ public class Query implements Closeable {
      * @param address
      *            The servers IP-address
      */
-    public Query(InetSocketAddress queryAddress, InetSocketAddress address) {
+    public MinecraftQuery(InetSocketAddress queryAddress, InetSocketAddress address) {
         this.address = address;
         this.queryAddress = queryAddress;
         if(queryAddress.getPort() == 0){
@@ -72,8 +72,8 @@ public class Query implements Closeable {
     /**
      * Try pinging the server and then sending the query
      *
-     * @see Query#pingServer()
-     * @see Query#sendQueryRequest()
+     * @see MinecraftQuery#pingServer()
+     * @see MinecraftQuery#sendQueryRequest()
      * @throws IOException
      *             If the server cannot be pinged
      */
@@ -217,7 +217,7 @@ public class Query implements Closeable {
     /**
      * Helper method to send a datagram packet
      *
-     * @see Query#sendPacket(DatagramSocket, InetSocketAddress, byte...)
+     * @see MinecraftQuery#sendPacket(DatagramSocket, InetSocketAddress, byte...)
      * @param socket
      *            The connection the packet should be sent through
      * @param targetAddress
