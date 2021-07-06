@@ -137,7 +137,7 @@ public class MainHandler extends TelegramLongPollingBot {
     }
 
     private void checkMinecraftPlayers(Message message) {
-        if (message.hasText() && message.getText().matches("^/mine(@.+)?$")) {
+        if (message.hasText() && message.getText().matches("^/mine(@.+)?$") && message.getChat().isSuperGroupChat()) {
             deleteMessage(message, this);
             restartMinecraftPlayersThread(message.getChatId());
         }
