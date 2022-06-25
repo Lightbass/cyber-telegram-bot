@@ -108,10 +108,10 @@ public class AvitoTrackerHandler implements Consumer<Message> {
 
     private List<OfferInfo> getOfferInfo(String url) {
         List<OfferInfo> offers = new ArrayList<>();
-        String body = makeRequest(url).split("items-extra")[0];
-        List<String> names = stringsFromParseHtml(body, "//a[contains(@class, 'title-listRedesign')]/h3[@itemprop]", null);
-        List<String> descriptions = stringsFromParseHtml(body, "//div[contains(@class, 'item-description') and contains(@class, 'item-text')]", null);
-        List<String> prices = stringsFromParseHtml(body, "//span[contains(@class, 'listRedesign')]/span/meta[@itemprop='price']", "content");
+        Document doc = Jsoup.parse(makeRequest(url).split("items-extra")[0]);
+        List<String> names = stringsFromParseHtml(doc, "//a[contains(@class, 'title-listRedesign')]/h3[@itemprop]", null);
+        List<String> descriptions = stringsFromParseHtml(doc, "//div[contains(@class, 'item-description') and contains(@class, 'item-text')]", null);
+        List<String> prices = stringsFromParseHtml(doc, "//span[contains(@class, 'listRedesign')]/span/meta[@itemprop='price']", "content");
         for (int i = 0; i < names.size(); i++) {
             int price = prices.get(i).equals("...") ? -1 : Integer.parseInt(prices.get(i));
             offers.add(new OfferInfo(price, names.get(i), descriptions.get(i)));
@@ -137,9 +137,8 @@ public class AvitoTrackerHandler implements Consumer<Message> {
         return "";
     }
 
-    private List<String> stringsFromParseHtml(String body, String expression, String attributeName) {
+    private List<String> stringsFromParseHtml(Document doc, String expression, String attributeName) {
         List<String> list = new ArrayList<>();
-        Document doc = Jsoup.parse(body);
         Elements newsHeadlines = doc.selectXpath(expression);
         for (Element headline : newsHeadlines) {
             list.add(attributeName == null ? headline.text() : headline.attr(attributeName));
