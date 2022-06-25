@@ -43,8 +43,8 @@ public class AvitoTrackerHandler implements Consumer<Message> {
                 String link = message.getText();
                 int minPrice = 999999999;
                 if (link.matches("^https://.* \\d{1,}")) {
-                    link = link.split(" ")[0];
                     minPrice = Integer.parseInt(link.split(" ")[1]);
+                    link = link.split(" ")[0];
                 }
                 String lastOffer = getOfferInfo(link).get(0).title;
                 value.add(new OfferTrack(message.getText(), lastOffer, minPrice));
@@ -94,7 +94,7 @@ public class AvitoTrackerHandler implements Consumer<Message> {
                                             sendMessage(String.valueOf(chatId), "Ссылка: " + offerTrack.link + "\n\n" + offers.get(i) + "\nКоманда удаления: /avitoDelete" + trackId, bot);
                                         }
                                     }
-                                    offerTrack.lastOffer = offers.get(0).title;
+                                    offerTrack.lastOffer = offers.size() == 0 ? offerTrack.lastOffer : offers.get(0).title;
                                 }
                             }
                     );
