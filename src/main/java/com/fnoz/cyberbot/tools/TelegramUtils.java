@@ -5,6 +5,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.concurrent.TimeUnit;
@@ -21,11 +22,18 @@ public class TelegramUtils {
     }
 
     public static Message sendMessage(String chatId, String text, TelegramLongPollingBot bot) {
+        return sendMessage(chatId, text, bot, null);
+    }
+
+    public static Message sendMessage(String chatId, String text, TelegramLongPollingBot bot, ReplyKeyboardMarkup keyboardMarkup) {
         try {
             SendMessage sendMessage = SendMessage.builder()
                     .chatId(chatId)
-                    .text(text)
+                    .text(text.length() > 4096 ? text.substring(0, 4096) : text)
                     .build();
+            if (keyboardMarkup != null) {
+                sendMessage.setReplyMarkup(keyboardMarkup);
+            }
             return bot.execute(sendMessage);
         } catch (TelegramApiException e) {
             e.printStackTrace();
