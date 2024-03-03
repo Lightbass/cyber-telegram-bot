@@ -5,6 +5,7 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.fnoz.cyberbot.tools.TelegramUtils.sendTempMessage;
@@ -16,9 +17,9 @@ public class SendAllHandler implements Consumer<Message> {
 
     private final List<String> userList = Arrays.asList("bassok", "deddok", "Shivinskiy", "s0n1c13", "snakoff", "sanchez752");
 
-    public SendAllHandler(TelegramLongPollingBot bot, int deleteMessageDelaySec) {
+    public SendAllHandler(TelegramLongPollingBot bot, Properties properties) {
         this.bot = bot;
-        this.deleteMessageDelaySec = deleteMessageDelaySec;
+        this.deleteMessageDelaySec = Integer.parseInt(properties.getProperty("fnoz.message-delay-sec"));
     }
 
     @Override

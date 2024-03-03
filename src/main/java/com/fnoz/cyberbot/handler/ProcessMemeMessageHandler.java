@@ -11,6 +11,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.fnoz.cyberbot.tools.TelegramUtils.downloadPhotoByFilePath;
@@ -25,10 +26,10 @@ public class ProcessMemeMessageHandler implements Consumer<Message> {
     private final String imageSavedText = "Изображение сохранено.";
     private final String noImageText = ". Нет изображения.";
 
-    public ProcessMemeMessageHandler(TelegramLongPollingBot bot, YandexApiService yandexApiService, int deleteMessageDelaySec) {
+    public ProcessMemeMessageHandler(TelegramLongPollingBot bot, Properties properties) {
         this.bot = bot;
-        this.yandexApiService = yandexApiService;
-        this.deleteMessageDelaySec = deleteMessageDelaySec;
+        this.yandexApiService = new YandexApiService(properties.getProperty("fnoz.yandex.token"));
+        this.deleteMessageDelaySec = Integer.parseInt(properties.getProperty("fnoz.message-delay-sec"));
     }
 
     @Override

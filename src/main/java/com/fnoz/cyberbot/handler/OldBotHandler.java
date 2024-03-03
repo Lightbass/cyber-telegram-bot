@@ -12,6 +12,17 @@ import java.util.ArrayList;
 public class OldBotHandler extends TelegramLongPollingBot {
 
     public void onUpdateReceived(Update update) {
+        //            ArrayList<KeyboardRow> buttons = new ArrayList<>();
+//            linksToTrack.get(message.getChatId()).forEach(offerTrack -> {
+//                KeyboardRow keyboardRow = new KeyboardRow();
+//                keyboardRow.add(offerTrack.link);
+//                buttons.add(keyboardRow);
+//            });
+//
+//            ReplyKeyboardMarkup inBut = new ReplyKeyboardMarkup();
+//            inBut.setKeyboard(buttons);
+//            sendMessage(message.getChatId().toString(), "Выберите объявление для удаления:", bot, inBut);
+
         KeyboardRow button = new KeyboardRow();
         button.add("hi");
         button.add("расписание");

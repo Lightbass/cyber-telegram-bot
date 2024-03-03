@@ -6,6 +6,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
@@ -14,25 +16,34 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 import static com.fnoz.cyberbot.tools.TelegramUtils.sendMessage;
 
 public class AvitoTrackerHandler implements Consumer<Message> {
 
-    private final TelegramLongPollingBot bot;
-    private final Map<Long, List<OfferTrack>> linksToTrack = new HashMap<>();
+    private static final Logger logger = LoggerFactory.getLogger(AvitoTrackerHandler.class);
 
-    private final int refreshOffersTime = 60000;
+    private final TelegramLongPollingBot bot;
+    private final Map<Long, List<OfferTrack>> linksToTrack = new ConcurrentHashMap<>();
+
+    private final int refreshOffersTimeInMin = 1;
     private volatile Thread trackerThread;
 
+    private final HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(30))
+            .executor(Executors.newFixedThreadPool(1))
+            .build();
 
     public AvitoTrackerHandler(TelegramLongPollingBot bot) {
         this.bot = bot;
+        trackerThread();
     }
 
     @Override
@@ -40,59 +51,41 @@ public class AvitoTrackerHandler implements Consumer<Message> {
         if (message.hasText() && message.getText().matches("^https://www\\.avito\\.ru/.*")) {
             linksToTrack.computeIfAbsent(message.getChatId(), id -> new ArrayList<>());
             linksToTrack.compute(message.getChatId(), (key, value) -> {
-                String link = message.getText();
-                int minPrice = 999999999;
-                if (link.matches("^https://.* \\d{1,}")) {
-                    minPrice = Integer.parseInt(link.split(" ")[1]);
-                    link = link.split(" ")[0];
-                }
-                String lastOffer = getOfferInfo(link).get(0).title;
-                value.add(new OfferTrack(message.getText(), lastOffer, minPrice));
+                String lastOffer = getOfferInfo(message.getText()).get(0).title;
+                value.add(new OfferTrack(message.getText(), lastOffer));
                 return value;
             });
-            trackerThread();
         } else if (message.hasText() && message.getText().matches("^/avitoDelete(@.+)?\\d+$")) {
             int index = Integer.parseInt(message.getText().split("Delete")[1]);
             OfferTrack offerTrack = linksToTrack.get(message.getChatId()).get(index);
             sendMessage(message.getChatId().toString(), "Отключено отслеживание по ссылке: " + offerTrack.link, bot);
             linksToTrack.get(message.getChatId()).remove(index);
-
-
-//            ArrayList<KeyboardRow> buttons = new ArrayList<>();
-//            linksToTrack.get(message.getChatId()).forEach(offerTrack -> {
-//                KeyboardRow keyboardRow = new KeyboardRow();
-//                keyboardRow.add(offerTrack.link);
-//                buttons.add(keyboardRow);
-//            });
-//
-//            ReplyKeyboardMarkup inBut = new ReplyKeyboardMarkup();
-//            inBut.setKeyboard(buttons);
-//            sendMessage(message.getChatId().toString(), "Выберите объявление для удаления:", bot, inBut);
         }
     }
 
+    /**
+     * К сожалению пока один поток. Сервак говно.
+     */
     private void trackerThread() {
         if (this.trackerThread != null && this.trackerThread.getState() != Thread.State.TERMINATED) {
             this.trackerThread.interrupt();
             try {
                 this.trackerThread.join();
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                logger.error("Error: ", e);
             }
         }
         this.trackerThread = new Thread(() -> {
             try {
                 while (true) {
-                    Thread.sleep(refreshOffersTime);
+                    Thread.sleep(refreshOffersTimeInMin * 60000);
 
                     linksToTrack.forEach((chatId, offerTracks) -> {
                                 for (int trackId = 0; trackId < offerTracks.size(); trackId++) {
                                     OfferTrack offerTrack = offerTracks.get(trackId);
                                     List<OfferInfo> offers = getOfferInfo(offerTrack.link);
-                                    for (int i = 0; i < offers.size() && !offers.get(i).title.equals(offerTrack.lastOffer); i++) {
-                                        if (offers.get(i).price < offerTrack.minPrice) {
-                                            sendMessage(String.valueOf(chatId), "Ссылка: " + offerTrack.link + "\n\n" + offers.get(i) + "\nКоманда удаления: /avitoDelete" + trackId, bot);
-                                        }
+                                    for (int i = 0; i < offers.size() && !offers.get(i).title.equals(offerTrack.lastOffer) && !offers.get(i).isOutdated(refreshOffersTimeInMin); i++) {
+                                        sendMessage(String.valueOf(chatId), "Ссылка: " + offerTrack.link + "\n\n" + offers.get(i) + "\nКоманда удаления: /avitoDelete" + trackId, bot);
                                     }
                                     offerTrack.lastOffer = offers.size() == 0 ? offerTrack.lastOffer : offers.get(0).title;
                                 }
@@ -100,7 +93,10 @@ public class AvitoTrackerHandler implements Consumer<Message> {
                     );
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                logger.error("Error: ", e);
+            } catch (Exception e) {
+                logger.error("Error: ", e);
+                trackerThread();
             }
         });
         this.trackerThread.start();
@@ -112,16 +108,17 @@ public class AvitoTrackerHandler implements Consumer<Message> {
         List<String> names = stringsFromParseHtml(doc, "//a[contains(@class, 'title-listRedesign')]/h3[@itemprop]", null);
         List<String> descriptions = stringsFromParseHtml(doc, "//div[contains(@class, 'item-description') and contains(@class, 'item-text')]", null);
         List<String> prices = stringsFromParseHtml(doc, "//span[contains(@class, 'listRedesign')]/span/meta[@itemprop='price']", "content");
+        List<String> dates = stringsFromParseHtml(doc, "//div[contains(@class, 'date-root-')]/span/span/div", null);
         for (int i = 0; i < names.size(); i++) {
             int price = prices.get(i).equals("...") ? -1 : Integer.parseInt(prices.get(i));
-            offers.add(new OfferInfo(price, names.get(i), descriptions.get(i)));
+            offers.add(new OfferInfo(price, names.get(i), descriptions.get(i), dates.get(i)));
         }
         return offers;
     }
 
     private String makeRequest(String url) {
-        HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
+                .timeout(Duration.ofSeconds(30))
                 .uri(URI.create(url))
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:101.0) Gecko/20100101 Firefox/101.0)")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
@@ -132,7 +129,7 @@ public class AvitoTrackerHandler implements Consumer<Message> {
         try {
             return client.send(request, HttpResponse.BodyHandlers.ofString()).body();
         } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+            logger.error("Error: ", e);
         }
         return "";
     }
@@ -148,10 +145,12 @@ public class AvitoTrackerHandler implements Consumer<Message> {
 
     public static void main(String[] args) {
         AvitoTrackerHandler avitoTrackerHandler = new AvitoTrackerHandler(null);
-        String url = "https://www.avito.ru/sankt-peterburg?cd=1&q=%D1%81%D1%82%D0%BE%D0%BB+%D0%B1%D0%B5%D1%81%D0%BF%D0%BB%D0%B0%D1%82%D0%BD%D0%BE";
+       // String url = "https://www.avito.ru/sankt-peterburg?cd=1&q=%D1%81%D1%82%D0%BE%D0%BB+%D0%B1%D0%B5%D1%81%D0%BF%D0%BB%D0%B0%D1%82%D0%BD%D0%BE";
+        String url = "https://www.avito.ru/sankt-peterburg/igry_pristavki_i_programmy/igrovye_pristavki-ASgBAgICAUSSAsoJ?f=ASgBAgECAUSSAsoJAUXGmgwXeyJmcm9tIjoyMDAwLCJ0byI6NTAwMH0&q=Nintendo+3DS&s=104";
         List<OfferInfo> offerInfos = avitoTrackerHandler.getOfferInfo(url);
         for (int i = 0; i < offerInfos.size(); i++) {
             System.out.println(offerInfos.get(i));
+            offerInfos.get(0).isOutdated(1);
         }
     }
 }

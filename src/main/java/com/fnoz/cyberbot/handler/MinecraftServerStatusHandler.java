@@ -4,6 +4,7 @@ import com.fnoz.cyberbot.service.MinecraftService;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
+import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.fnoz.cyberbot.tools.TelegramUtils.deleteMessage;
@@ -18,9 +19,9 @@ public class MinecraftServerStatusHandler implements Consumer<Message> {
     private volatile Message playerListMessage;
     private volatile Thread playerListThread;
 
-    public MinecraftServerStatusHandler(TelegramLongPollingBot bot, MinecraftService minecraftService) {
+    public MinecraftServerStatusHandler(TelegramLongPollingBot bot, Properties properties) {
         this.bot = bot;
-        this.minecraftService = minecraftService;
+        this.minecraftService = new MinecraftService(properties.getProperty("fnoz.minecraft.server.ip"));
     }
 
     @Override

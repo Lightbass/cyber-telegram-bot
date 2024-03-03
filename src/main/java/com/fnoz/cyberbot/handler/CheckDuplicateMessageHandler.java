@@ -7,6 +7,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.fnoz.cyberbot.tools.TelegramUtils.sendTempMessage;
@@ -19,10 +20,10 @@ public class CheckDuplicateMessageHandler implements Consumer<Message> {
     private final LinkedHashSet<String> chatMessagesIds;
 
 
-    public CheckDuplicateMessageHandler(TelegramLongPollingBot bot, int deleteMessageDelaySec, int forwardedMessagesCache) {
+    public CheckDuplicateMessageHandler(TelegramLongPollingBot bot, Properties properties) {
         this.bot = bot;
-        this.deleteMessageDelaySec = deleteMessageDelaySec;
-        this.forwardedMessagesCache = forwardedMessagesCache;
+        this.deleteMessageDelaySec = Integer.parseInt(properties.getProperty("fnoz.message-delay-sec"));
+        this.forwardedMessagesCache = Integer.parseInt(properties.getProperty("fnoz.forwarded-messages-cache"));
         this.chatMessagesIds = new LinkedHashSet<>(forwardedMessagesCache);
     }
 
