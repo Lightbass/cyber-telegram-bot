@@ -2,6 +2,7 @@ package com.fnoz.cyberbot;
 
 import com.fnoz.cyberbot.handler.AvitoTrackerHandler;
 import com.fnoz.cyberbot.handler.CheckDuplicateMessageHandler;
+import com.fnoz.cyberbot.handler.FragmentTrackerHandler;
 import com.fnoz.cyberbot.handler.MinecraftServerStatusHandler;
 import com.fnoz.cyberbot.handler.NotificationHandler;
 import com.fnoz.cyberbot.handler.ProcessMemeMessageHandler;
@@ -43,6 +44,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         addToHandlerIfEnabled("send-all", () -> new SendAllHandler(TelegramBot.this, properties), handlersList);
         addToHandlerIfEnabled("avito", () -> new AvitoTrackerHandler(TelegramBot.this), handlersList);
         addToHandlerIfEnabled("notification", () -> new NotificationHandler(TelegramBot.this), handlersList);
+        addToHandlerIfEnabled("fragment", () -> new FragmentTrackerHandler(TelegramBot.this), handlersList);
     }
 
     @Override

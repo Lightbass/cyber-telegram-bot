@@ -8,27 +8,43 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public class TelegramUtils {
     public static void sendTempMessage(String chatId, String text, long lifeTime, TelegramLongPollingBot bot) {
-        try {
-            Message message = sendMessage(chatId, text, bot);
-            TimeUnit.SECONDS.sleep(lifeTime);
-            deleteMessage(message, bot);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        Message message = sendMessage(chatId, text, bot, null);
+        CompletableFuture
+                .delayedExecutor(lifeTime, TimeUnit.SECONDS)
+                .execute(() -> deleteMessage(message, bot));
+    }
+
+    public static void sendTempMessageMuted(String chatId, String text, long lifeTime, TelegramLongPollingBot bot) {
+        Message message = sendMessageMuted(chatId, text, bot, null);
+        CompletableFuture
+                .delayedExecutor(lifeTime, TimeUnit.SECONDS)
+                .execute(() -> deleteMessage(message, bot));
     }
 
     public static Message sendMessage(String chatId, String text, TelegramLongPollingBot bot) {
         return sendMessage(chatId, text, bot, null);
     }
 
-    public static Message sendMessage(String chatId, String text, TelegramLongPollingBot bot, ReplyKeyboardMarkup keyboardMarkup) {
+    public static Message sendMessageMuted(String chatId, String text, TelegramLongPollingBot bot,
+                                      ReplyKeyboardMarkup keyboardMarkup) {
+        return sendMessage(chatId, text, bot, keyboardMarkup, false);
+    }
+    public static Message sendMessage(String chatId, String text, TelegramLongPollingBot bot,
+                                      ReplyKeyboardMarkup keyboardMarkup) {
+        return sendMessage(chatId, text, bot, keyboardMarkup, true);
+    }
+
+    public static Message sendMessage(String chatId, String text, TelegramLongPollingBot bot,
+                                      ReplyKeyboardMarkup keyboardMarkup, boolean notification) {
         try {
             SendMessage sendMessage = SendMessage.builder()
                     .chatId(chatId)
+                    .disableNotification(!notification)
                     .text(text.length() > 4096 ? text.substring(0, 4096) : text)
                     .build();
             if (keyboardMarkup != null) {

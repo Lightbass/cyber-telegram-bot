@@ -8,10 +8,9 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.function.Consumer;
 
-import static com.fnoz.cyberbot.tools.TelegramUtils.sendMessage;
+import static com.fnoz.cyberbot.tools.TelegramUtils.sendTempMessageMuted;
 
 public class NotificationHandler implements Consumer<Message> {
 
@@ -30,7 +29,7 @@ public class NotificationHandler implements Consumer<Message> {
                     userList.forEach((key, value) -> {
                         if (System.currentTimeMillis() > value.getSecond()) {
                             value.setSecond(System.currentTimeMillis() + value.getFirst());
-                            sendMessage(key.toString(), "Встань, присядь!", bot);
+                            sendTempMessageMuted(key.toString(), "Встань, присядь!", value.getFirst() / 1000, bot);
                         }
                     });
                 } catch (Exception e) {
